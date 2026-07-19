@@ -38,7 +38,7 @@ A document is a JSON object with two layers:
 | Key | Required | Meaning |
 |---|---|---|
 | `version` | ✓ | The spec version this document is written against, as an `"x.y"` string. Implementations must reject versions they do not know rather than silently interpreting them |
-| `timezone` | ✓ | The timezone in which every schedule is interpreted. **The document is authoritative** — a document carried anywhere means the same thing |
+| `timezone` | ✓ | The timezone in which every schedule is interpreted. **The document, not the host's default timezone or locale, is authoritative** (resolver-backed definitions additionally depend on the supplied bindings — see the calendar section — and the wall-to-instant mapping follows the implementation's tz database) |
 | `calendar` | | The definitions part (see below) |
 | `schedules` | ✓ | The list of schedules. **The list is an OR of complete schedules** (a bare object is not allowed) |
 
@@ -143,11 +143,12 @@ premise.
   resolver names is portable only together with its resolver bindings:
   the host's locale or default timezone never affects interpretation,
   but resolver-backed definitions do depend on what the host binds the
-  names to. A resolver returns a list of date literals (`YYYY-MM-DD`) and
-  is responsible for covering the dates relevant to the questions being
-  asked — which years to include is the resolver's own concern.
-  Implementations validate the returned format; a resolver that fails at
-  call time is a host-side runtime error, not a document validation error
+  names to. Conceptually a resolver denotes a **date set**; how a host
+  materializes it — the call signature, and whether a relevant range is
+  communicated — is implementation API, outside this language.
+  Implementations validate that what a resolver yields is a list of date
+  literals (`YYYY-MM-DD`); a resolver that fails at call time is a
+  host-side runtime error, not a document validation error
 
 ## Schedule
 
@@ -163,10 +164,13 @@ The algebra has three tiers: alternatives within a date-axis array are
 combined with OR, fields within one schedule are combined with AND, and
 complete schedules within the `schedules` list are combined with OR.
 
-A schedule is a product of two orthogonal planes: the **date plane**
-(`years` / `months` / `days`, filtered by `if`, moved by `shift`) and the
-**time plane** (`times` | `allday`). Days are selected with no knowledge
-of times, and times are laid on the selected days without moving them.
+A schedule that uses `times` or `allday` is a product of two orthogonal
+planes: the **date plane** (`years` / `months` / `days`, filtered by
+`if`, moved by `shift`) and the **time plane** (`times` | `allday`).
+Days are selected with no knowledge of times, and times are laid on the
+selected days without moving them. A schedule with a top-level `every`
+is the third form — a from-anchored sequence of points that takes no
+date axes at all (see its section).
 
 ### from / until — validity range
 
@@ -198,7 +202,8 @@ the matching days); points outside the range simply do not exist.
 - A point at `from` is included; a point at `until` is not (the same
   half-open convention as `between`)
 - Each is independent (only `from`, only `until`, or both). With both,
-  from < until is required. **Vocabulary that counts** (the
+  the resolved instant of `from` must be strictly earlier than the
+  resolved instant of `until`. **Vocabulary that counts** (the
   `["every", N, "day"]` atom and the interval `every`) requires `from`
   (there is no way to start counting without it); otherwise both are
   optional
@@ -336,9 +341,10 @@ shift: [direction, "or_same"?, landing condition]
 - `years` / `months` / `days` select the **base day only**. The landing
   day is not bound by them and may move into an adjacent month or year (a
   December base day landing in January of the next year still counts)
-- The landing condition is searched up to 366 days in the given direction.
-  If nothing is found within 366 days, that base day produces no points —
-  it does not invalidate the document
+- The maximum displacement of a shift is **366 calendar days**; with
+  `or_same`, displacement zero (the base day itself) is tested first. A
+  base day whose landing condition never holds within that range produces
+  no occurrences — it does not invalidate the document
 
 ### if — filtering by the day itself or a neighbour
 
@@ -377,8 +383,8 @@ Semantics:
 - `every` is a **clock grid** — a description of a row of clock positions
   ("on the hour", …); a late execution never moves future points. The
   count is an integer ≥ 1; the unit is `"hour" | "minute" | "second"`
-  (singular, fixed). The upper bounds are one day's worth: 24 hour /
-  1440 minute / 86400 second
+  (singular, fixed). The maximum count is 24 for `"hour"`, 1,440 for
+  `"minute"`, and 86,400 for `"second"` — one day's worth in each unit
 - `between` is the **half-open interval [start, end)**. "Every hour from
   8:00 to 20:00" is the 12 points 8:00–19:00 and **20:00 is excluded**.
   The value is a window pair or `"business_hour"` (the window list of
@@ -406,9 +412,9 @@ Semantics:
 - An `allday` occurrence is a **day-level occurrence: time does not apply
   to it**. It is not `times: ["00:00"]` — a timed occurrence at 00:00 and
   an all-day occurrence of the same day are distinct occurrences and never
-  collapse into one. For range clipping and ordering, an all-day
-  occurrence uses a **comparison instant**: 00:00 of its local date,
-  resolved like any other wall-clock point
+  collapse into one. For range clipping, an all-day occurrence uses a
+  **comparison instant**: 00:00 of its local date, resolved like any
+  other wall-clock point
 
 ### every (directly on a schedule) — an interval sequence from `from`
 
@@ -466,8 +472,9 @@ For each schedule:
 2. **`if` filters** — base days whose condition does not hold are
    removed; nothing moves
 3. **`shift` moves** — each remaining base day moves in the given
-   direction until the landing condition holds (searched up to 366 days;
-   a base day that finds nothing produces no occurrences). Consecutive
+   direction until the landing condition holds (with a maximum
+   displacement of 366 calendar days; a base day that finds nothing
+   produces no occurrences). Consecutive
    base days may land on the same day and collapse
 4. **Time generation** — on each resulting day, `times` lays out its
    fixed times or its grid (anchored per day and per window), or `allday`
@@ -481,11 +488,10 @@ For each schedule:
    [from, until). For a timed occurrence the comparison instant is its
    instant; an all-day occurrence — which has no instant of its own — is
    assigned one by resolving 00:00 of its local date by the same rule.
-   The comparison is between **instants**, never wall-clock values: a
+   The comparison is between **instants**, never wall-clock values. A
    boundary written at a nonexistent wall time (the DST gap) resolves
-   forward like any other point, and occurrences before its resolved
-   instant survive — an occurrence never vanishes because a boundary was
-   written in the gap
+   forward like any other wall-clock point; no special clipping rule
+   applies to DST gaps
 7. **Union across schedules** — the document's set is the union of the
    schedules' occurrences, with duplicates collapsing within each kind
    (timed / all-day) as defined in the document model
@@ -532,7 +538,8 @@ but they are defined here as semantic validation rules:
   (half-open, so touching is legal)
 - Every date literal is a real date (`2026-02-30` is well-formed but
   invalid); the date part of `from` / `until` likewise
-- from < until
+- The resolved instant of `from` is strictly earlier than the resolved
+  instant of `until`
 - Presence of `from` in a schedule that uses `["every", N, "day"]`
   (cross-field constraints are outside the schema's reach; the `from` of
   the interval `every` is required by the schema as well)
