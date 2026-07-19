@@ -7,8 +7,8 @@ define the structural syntax; this document defines the language — its
 syntax and its semantics. Implementations must conform to both, and their
 agreement is verified by tests.
 
-A Yrnk document is a **description of a set of points in time** and knows
-nothing about execution. "Should this fire", "last run at", and
+A Yrnk document is a **description of a set of occurrences** — points in
+time, or whole days — and knows nothing about execution. "Should this fire", "last run at", and
 "catch-up" do not exist in this language's vocabulary — they are the
 caller's concern, expressed through the questions the caller asks.
 
@@ -62,8 +62,12 @@ A document is a JSON object with two layers:
   ordinal and day-cycle tuples, both `every` forms, a window) hold
   fixed-arity tuples whose elements are read by position, as defined in
   their sections
-- The whole DSL denotes a set, so when several schedules produce the same
-  point the OR contains it once, and a firing decision sees it once
+- The whole DSL denotes a set of **occurrences**. An occurrence is either
+  **timed** (an instant) or **all-day** (a whole day; time does not apply
+  to it). The two kinds never merge: an all-day occurrence and a timed
+  occurrence at 00:00 of the same day are distinct elements. Within a
+  kind, when several schedules produce the same occurrence the OR
+  contains it once, and a firing decision sees it once
 
 ## Versioning
 
@@ -110,10 +114,11 @@ premise.
   semantics (below), and `business_hours` is the window list behind the
   `business_hour` vocabulary. `custom` entries take no part in the layers;
   a custom name is a flat "membership in a set" and nothing more
-- **Custom values are date lists only** (windows cannot be named — date
-  sets can be large and dynamic, which is a real need for naming, while a
-  window list is short enough to write inline in a schedule; the only
-  shared windows are the built-in `business_hours`). Custom key names must
+- **Custom values are date lists only** — windows cannot be aliased. A
+  date set can be large and dynamic, so naming one is a real need; a
+  window is a short literal, written in place where it is used, so an
+  aliasing mechanism would buy nothing. The only shared window list is
+  the built-in `business_hours`. Custom key names must
   not collide with reserved words and must not look like literals (digits
   only, date-shaped, time-shaped)
 - **Resolver name references**: wherever a date list is expected, a string
@@ -141,6 +146,11 @@ The fields are `years` / `months` / `days` (the date axes), `shift` / `if`
 The algebra has three tiers: alternatives within a date-axis array are
 combined with OR, fields within one schedule are combined with AND, and
 complete schedules within the `schedules` list are combined with OR.
+
+A schedule is a product of two orthogonal planes: the **date plane**
+(`years` / `months` / `days`, filtered by `if`, moved by `shift`) and the
+**time plane** (`times` | `allday`). Days are selected with no knowledge
+of times, and times are laid on the selected days without moving them.
 
 ### from / until — validity range
 
@@ -176,9 +186,9 @@ the matching days); points outside the range simply do not exist.
   `["every", N, "day"]` atom and the interval `every`) requires `from`
   (there is no way to start counting without it); otherwise both are
   optional
-- An `allday` point is a point at the start of its day (00:00), so with
-  `from: "2026-07-14 12:00"` the allday point of 7/14 is out of range. The
-  clipping rule is uniform and has no exceptions
+- For clipping, an all-day occurrence sits at the start of its day
+  (00:00), so with `from: "2026-07-14 12:00"` the all-day occurrence of
+  7/14 is out of range. The clipping rule is uniform and has no exceptions
 
 ### Date axes
 
@@ -357,9 +367,11 @@ Semantics:
   midnight (start ≥ end) cannot be written
 - Times are **zero-padded HH:MM, fixed** (`"0:00"` is invalid; seconds
   cannot be written)
-- An `allday` point is, in implementation terms, **a point at the start of
-  its day (00:00)** plus an allday flag. The difference from
-  `times: ["00:00"]` is that the intent "any time that day" is preserved
+- An `allday` occurrence is a **day-level occurrence: time does not apply
+  to it**. It is not `times: ["00:00"]` — a timed occurrence at 00:00 and
+  an all-day occurrence of the same day are distinct occurrences and never
+  collapse into one. For range clipping and ordering, an all-day
+  occurrence sits at the start of its day (00:00)
 
 ### every (directly on a schedule) — an interval sequence from `from`
 
@@ -401,6 +413,44 @@ The third form, for intervals that do not decompose into days and times
   seconds of real time" remains unsupported (the same line as the
   unsupported relative intervals)
 
+## Evaluation model
+
+The sections above define each construct; this section fixes the order in
+which they combine. The order defines the **observable result** only — an
+implementation may compute it however it likes, as long as the outcome is
+identical.
+
+For each schedule:
+
+1. **Base-day selection** — the date axes select days: `years` AND
+   `months` AND `days`, with the enumeration inside each axis combined by
+   OR. A day-cycle atom counts its days from the date of the schedule's
+   `from` (day one)
+2. **`if` filters** — base days whose condition does not hold are
+   removed; nothing moves
+3. **`shift` moves** — each remaining base day moves in the given
+   direction until the landing condition holds (searched up to 366 days;
+   a base day that finds nothing produces no occurrences). Consecutive
+   base days may land on the same day and collapse
+4. **Time generation** — on each resulting day, `times` lays out its
+   fixed times or its grid (anchored per day and per window), or `allday`
+   produces the day-level occurrence. A schedule with a top-level `every`
+   skips steps 1–4 and generates the from + k × interval sequence instead
+5. **Wall-to-instant resolution** — every wall-clock point resolves to an
+   instant per RFC 5545 §3.3.5 (gap: pushed forward; overlap: first
+   occurrence only)
+6. **Range clipping** — `from` / `until` resolve to instants by the same
+   rule, and an occurrence survives if its instant lies in [from, until).
+   The comparison is between **instants**, never wall-clock values: a
+   boundary written at a nonexistent wall time (the DST gap) resolves
+   forward like any other point, and occurrences before its resolved
+   instant survive — an occurrence never vanishes because a boundary was
+   written in the gap. An all-day occurrence sits at the start of its day
+   for this comparison
+7. **Union across schedules** — the document's set is the union of the
+   schedules' occurrences, with duplicates collapsing within each kind
+   (timed / all-day) as defined in the document model
+
 ## Deliberately unsupported
 
 Closed sets can be widened compatibly, so these are added if and when a
@@ -418,6 +468,12 @@ real need appears.
 - **Computed dates anchored to a fixed date** ("20 years after that
   day"). Write the folded result; preserving the provenance is the
   producer's responsibility
+- **Anything that crosses the date plane and the time plane**. The two
+  planes are orthogonal by construction: no day selection can depend on a
+  time, and no time can depend on how a day was selected ("two hours
+  after the same time on the previous business day", "move to the next
+  day when the time falls outside business hours" are not expressible).
+  The orthogonality is a design decision, not an omission
 - **Windows that cross midnight**, **per-weekday business hours**,
   **user-defined window names**, **definition macros** (names referring
   to names)
