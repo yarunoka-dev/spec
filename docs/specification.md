@@ -1,12 +1,11 @@
 # Yrnk Schedule DSL Specification (version 1.0)
 
-A DSL for describing calendar-aware schedules in JSON. The name of the
-language is **Yrnk** (short for Yarunoka) — the project is Yarunoka, the
-notation is Yrnk. The authoritative definition of the syntax is the set of
-JSON Schemas under [`schema/`](../schema/) (JSON Schema draft 2020-12);
-this document is the specification of the language including its semantics.
-Language implementations are copies of this authority, and their agreement
-is guaranteed by tests.
+Yrnk is a JSON DSL for describing calendar-aware schedules. **Yrnk** is
+short for Yarunoka: Yarunoka is the project, and Yrnk is the notation. The
+JSON Schemas under [`schema/`](../schema/) (JSON Schema draft 2020-12)
+define the structural syntax; this document defines the language — its
+syntax and its semantics. Implementations must conform to both, and their
+agreement is verified by tests.
 
 A Yrnk document is a **description of a set of points in time** and knows
 nothing about execution. "Should this fire", "last run at", and
@@ -52,10 +51,17 @@ A document is a JSON object with two layers:
   effect before the transition, which pushes it forward in real time; a
   time that occurs twice (the fall-back overlap) counts only as its first
   occurrence
-- **An array is an enumeration; omission means "all"**. There is no scalar
-  sugar — `"days": "mon"` and `"months": 2` are invalid; a single element
-  is still written as an array (so that the same value never has two
-  spellings, and round-tripping is the identity)
+- Arrays appear in two roles, distinguished by position. **List positions**
+  (`years` / `months` / `days`, a `times` list, `workweek`,
+  `business_hours`, date lists, `schedules`) hold enumerations: the array
+  enumerates members, and for the date axes omission means no restriction
+  on that axis. There is no scalar sugar — `"days": "mon"` and
+  `"months": 2` are invalid; a single member is still written as a
+  one-element array (so that the same value never has two spellings, and
+  round-tripping is the identity). **Tuple positions** (`shift`, `if`, the
+  ordinal and day-cycle tuples, both `every` forms, a window) hold
+  fixed-arity tuples whose elements are read by position, as defined in
+  their sections
 - The whole DSL denotes a set, so when several schedules produce the same
   point the OR contains it once, and a firing decision sees it once
 
@@ -64,11 +70,10 @@ A document is a JSON object with two layers:
 The spec version is an `"x.y"` string, and the `version` field of a
 document declares which spec version it is written against.
 
-- **y is raised** for changes that keep compatibility: additions to the
-  closed sets (new vocabulary, new atoms, new fields) that leave the
-  meaning of every existing document unchanged. A document written against
-  1.y is accepted by an implementation of 1.y′ (y′ > y) with the same
-  meaning
+- **y is raised** for backward-compatible changes: additions to closed
+  sets (new vocabulary, atoms, or fields) that leave the meaning of every
+  existing document unchanged. An implementation of 1.y′ accepts documents
+  written against 1.y, where y′ > y, with the same meaning
 - **x is raised** for breaking changes. Compatibility with documents
   written against a lower major version is not guaranteed
 - An implementation must reject a document whose declared version it does
@@ -82,7 +87,9 @@ The calendar is the set of date and time-window definitions that schedules
 refer to. Its top-level keys are a closed set of **reserved keys** (the
 built-in definitions); under `custom` is an **open namespace** (the user's
 own named date lists). A calendar contains wall-clock dates and times
-only, and its content does not depend on the document timezone.
+only and defines no timezone of its own: the timezone is declared at the
+document level, and a calendar — like the schedules — is written on that
+premise.
 
 ```json
 "calendar": {
@@ -112,9 +119,12 @@ only, and its content does not depend on the document timezone.
 - **Resolver name references**: wherever a date list is expected, a string
   **resolver name** may be written instead (`"holidays": "yasumi-jp"`).
   The runtime registers a name-to-function mapping, and a reference to an
-  unregistered name is a parse-time error. The two are distinguished by
-  shape (a `YYYY-MM-DD`-shaped string is a date; any other string is a
-  resolver name). This is the mechanism for feeding dynamic data (a
+  unregistered name is a document validation error. The two are
+  distinguished by shape (a `YYYY-MM-DD`-shaped string is a date; any
+  other string is a resolver name). A single date-shaped string is not a
+  one-date list — dates always come as an array, so a bare string in a
+  date-list position is always a resolver name. This is a distinction of
+  kind, not scalar sugar. This is the mechanism for feeding dynamic data (a
   database, holiday computation) into a document while the document keeps
   the *intent* — what the dates are resolved by
 
@@ -128,9 +138,9 @@ The fields are `years` / `months` / `days` (the date axes), `shift` / `if`
 (the date modifiers), `times` | `allday` | `every` (the time part —
 **exactly one is required**), and `from` / `until` (the validity range).
 
-The algebra has three tiers: within an axis (an array) = OR, between
-fields (juxtaposition) = AND, between schedules (the `schedules` list)
-= OR.
+The algebra has three tiers: alternatives within a date-axis array are
+combined with OR, fields within one schedule are combined with AND, and
+complete schedules within the `schedules` list are combined with OR.
 
 ### from / until — validity range
 
@@ -151,7 +161,7 @@ the matching days); points outside the range simply do not exist.
 ```
 
 - The value has exactly one form: `"YYYY-MM-DD HH:MM"` (zero-padded, a
-  single space, no seconds). A date-only `"YYYY-MM-DD"` is invalid — if
+  single space — U+0020 — no seconds). A date-only `"YYYY-MM-DD"` is invalid — if
   omission meant 00:00, the same instant would have two spellings, so a
   range starting at the top of a day writes `00:00` explicitly. `24:00`
   does not exist in this position (write the next day's `00:00`; the
@@ -244,7 +254,8 @@ workweek           bottom layer: the weekly pattern that sets the default (omitt
 - A document that uses `holiday` requires the `holidays` definition; one
   that uses `business_day` / `business_holiday` requires all three layers
   (`holidays` / `business_holidays` / `business_days`). **Using them
-  undefined is a parse-time error** (never a silent "no match"). An
+  without the required definitions is a document validation error** (never
+  a silent "no match"). An
   explicit empty list is a legitimate statement that there are no such
   days
 - Choosing vocabulary: when the meaning of a schedule must not depend on
@@ -266,13 +277,14 @@ shift: [direction, "or_same"?, landing condition]
 
 ```jsonc
 // payday: the 25th, moved earlier if it falls on a non-business day
+// (if the 25th is a business day, that day itself)
 {"days": [25], "shift": ["prev", "or_same", "business_day"], "times": ["10:00"]}
 ```
 
 - Omitting `or_same` is **not a default — it is the other meaning** (the
   same distinction as java.time's `previous` / `previousOrSame`).
-  Forgetting it in the payday rule produces the quiet bug "rings on the
-  24th exactly in the months where the 25th is a business day"
+  Forgetting it in the payday rule produces the quiet bug of an occurrence
+  on the 24th exactly in the months where the 25th is a business day
 - Consecutive non-matching days land on the same day and collapse into a
   single match (Sat/Sun/Mon of a three-day weekend → all Friday)
 - `years` / `months` / `days` select the **base day only**. The landing
@@ -280,7 +292,7 @@ shift: [direction, "or_same"?, landing condition]
   December base day landing in January of the next year still counts)
 - The landing condition is searched up to 366 days in the given direction.
   If nothing is found within 366 days, that base day produces no points —
-  it is not a parse error for the document
+  it does not invalidate the document
 
 ### if — filtering by the day itself or a neighbour
 
@@ -291,11 +303,18 @@ if: [direction?, "not"?, condition]
     direction: "prev" | "next" (omitted = the day itself); condition: a day atom
 ```
 
-```json
-{"days": ["business_day"], "if": ["next", "business_holiday"]}   // last working day before a break
-{"days": ["mon"], "if": ["not", "holiday"]}                      // skip holidays (don't move)
-{"days": [13], "if": ["fri"]}                                    // Friday the 13th
-{"if": ["next", "last_day_of_month"]}                            // the day before the end of the month
+```jsonc
+// last working day before a break
+{"days": ["business_day"], "if": ["next", "business_holiday"], "times": ["09:00"]}
+
+// skip holidays without moving the occurrence
+{"days": ["mon"], "if": ["not", "holiday"], "times": ["09:00"]}
+
+// Friday the 13th
+{"days": [13], "if": ["fri"], "times": ["09:00"]}
+
+// the day before the end of the month
+{"if": ["next", "last_day_of_month"], "times": ["09:00"]}
 ```
 
 Combined with `shift`, **`if` filters the base days first, then `shift`
@@ -315,7 +334,7 @@ Semantics:
   (singular, fixed). The upper bounds are one day's worth: 24 hour /
   1440 minute / 86400 second
 - `between` is the **half-open interval [start, end)**. "Every hour from
-  8:00 to 20:00" is the 12 points 8:00–19:00 and **20:00 does not ring**.
+  8:00 to 20:00" is the 12 points 8:00–19:00 and **20:00 is excluded**.
   The value is a window pair or `"business_hour"` (the window list of
   `calendar.business_hours`; multiple windows, e.g. with a lunch break,
   are allowed)
@@ -332,7 +351,8 @@ Semantics:
   a wall time that occurs twice in the overlap counts only as its first
   occurrence
 - A document that uses `between: "business_hour"` requires
-  `calendar.business_hours`; using it undefined is a parse-time error
+  `calendar.business_hours`; using it without that definition is a
+  document validation error
 - `"24:00"` is a token allowed only as a window end. Windows that cross
   midnight (start ≥ end) cannot be written
 - Times are **zero-padded HH:MM, fixed** (`"0:00"` is invalid; seconds
@@ -389,8 +409,8 @@ real need appears.
 - **Year cycles** (true biennial). Unlike the day cycle
   (`["every", N, "day"]`), years do not fold into a day count because
   their lengths differ. A strict fortnight is `["every", 14, "day"]`; the
-  everyday sense of "biweekly" is usually expressible as "1st and 3rd
-  Friday"
+  everyday sense of "biweekly" can also be written in the "1st and 3rd
+  Friday" form
 - **Relative intervals** (N seconds since the last run). That is
   throttling, not a schedule (the caller's concern). The last run time
   appears only in the caller's question interval, never in the definition
@@ -404,8 +424,9 @@ real need appears.
 
 ## Constraints beyond the schema
 
-The authoritative syntax is the JSON Schemas, but the following cannot be
-expressed there and are validated by implementations at parse time:
+The following constraints are validated by implementations in addition to
+structural JSON Schema validation. Some may be expressible in JSON Schema,
+but they are defined here as semantic validation rules:
 
 - Resolvability of custom references and resolver names (undefined or
   unregistered is an error)
@@ -423,11 +444,14 @@ expressed there and are validated by implementations at parse time:
 
 ## Examples
 
+Unless noted otherwise, the following values are complete schedule
+objects, not complete Yrnk documents.
+
 ```jsonc
 // the third Monday of every month at 10:00
 {"days": [["3rd", "mon"]], "times": ["10:00"]}
 
-// Mon–Fri, hourly from 8:00 to 20:00 (20:00 does not ring — half-open)
+// Mon–Fri, hourly from 8:00 to 20:00 (20:00 is excluded — half-open)
 {"days": ["mon", "tue", "wed", "thu", "fri"],
  "times": {"every": [1, "hour"], "between": ["08:00", "20:00"]}}
 
@@ -437,7 +461,7 @@ expressed there and are validated by implementations at parse time:
 // every 600 seconds
 {"times": {"every": [600, "second"]}}
 
-// payday: the 25th, moved earlier on non-business days
+// payday: the 25th, moved to the previous business day on days off
 {"days": [25], "shift": ["prev", "or_same", "business_day"], "times": ["10:00"]}
 
 // last business day of the month at 17:00
@@ -446,7 +470,7 @@ expressed there and are validated by implementations at parse time:
 // garbage collection: 1st and 3rd Friday, skipped on holidays
 {"days": [["1st", "fri"], ["3rd", "fri"]], "if": ["not", "holiday"], "times": ["07:30"]}
 
-// water bill: the 27th of even months, moved later on non-business days
+// water bill: the 27th of even months, moved to the next business day on days off
 {"months": [2, 4, 6, 8, 10, 12], "days": [27],
  "shift": ["next", "or_same", "business_day"], "times": ["09:00"]}
 
@@ -465,7 +489,7 @@ expressed there and are validated by implementations at parse time:
 // every 36 hours
 {"from": "2026-07-14 00:00", "every": [36, "hour"]}
 
-// 8:00 on working days, 10:00 on days off (the schedules list = OR)
+// value of `schedules`: 8:00 on working days, 10:00 on days off
 [{"days": ["business_day"], "times": ["08:00"]},
  {"days": ["business_holiday"], "times": ["10:00"]}]
 ```
