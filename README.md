@@ -1,0 +1,31 @@
+# Yarunoka Specification
+
+Yarunoka is a calendar-aware schedule DSL. Schedules — "the third Monday
+of every month at 10:00", "payday on the 25th, moved earlier on
+non-business days" — are written in JSON, as pure descriptions of sets of
+points in time. The notation is called **Yrnk**.
+
+This repository is the language-independent specification of Yrnk.
+Language implementations conform to what is defined here.
+
+## Layout
+
+| Path | Content |
+|---|---|
+| [`schema/`](schema/) | JSON Schemas (draft 2020-12) — the authoritative syntax. Split into `document` / `calendar` / `schedule` / `primitives` so each unit is independently usable |
+| [`docs/specification.md`](docs/specification.md) | The specification — the document model and the semantics of the language |
+
+## Versioning
+
+The spec version is an `x.y` string: `y` changes are compatible additions,
+`x` changes are breaking. A document declares the version it is written
+against in its `version` field. See the
+[Versioning section](docs/specification.md#versioning) of the
+specification.
+
+**Status: under initial development. Version 1.0 has not been released
+yet**; everything in this repository may still change without notice.
+
+## License
+
+[MIT](LICENSE)
