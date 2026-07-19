@@ -44,8 +44,11 @@ A document is a JSON object with two layers:
 
 - Unknown keys are an error (closed set — the same rule applies at the
   document, calendar, schedule, and times levels)
-- `timezone` is an IANA name (`Asia/Tokyo`) or a fixed offset (`+09:00`).
-  Zones with daylight-saving transitions are allowed. Wall-clock times that
+- `timezone` is an **IANA Time Zone Database name** (`Asia/Tokyo`,
+  `UTC`). Fixed offsets (`+09:00`) are not accepted — a document anchored
+  to UTC writes `"UTC"`. Whether a name exists is checked against the
+  implementation's tz database. Zones with daylight-saving transitions
+  are allowed. Wall-clock times that
   fall on a transition are resolved **per RFC 5545 §3.3.5** — a time that
   does not exist (the spring-forward gap) is interpreted with the offset in
   effect before the transition, which pushes it forward in real time; a
@@ -62,6 +65,11 @@ A document is a JSON object with two layers:
   ordinal and day-cycle tuples, both `every` forms, a window) hold
   fixed-arity tuples whose elements are read by position, as defined in
   their sections
+- Dates follow the **proleptic Gregorian calendar**; years run 1–9999
+- Enumerations reject duplicate members. The date axes, a `times` list,
+  `workweek`, and `business_hours` must be non-empty when present, and
+  `schedules` must be non-empty. Date lists **may** be empty — an
+  explicit empty list is the statement that there are no such days
 - The whole DSL denotes a set of **occurrences**. An occurrence is either
   **timed** (an instant) or **all-day** (a whole day; time does not apply
   to it). The two kinds never merge: an all-day occurrence and a timed
@@ -124,14 +132,22 @@ premise.
 - **Resolver name references**: wherever a date list is expected, a string
   **resolver name** may be written instead (`"holidays": "yasumi-jp"`).
   The runtime registers a name-to-function mapping, and a reference to an
-  unregistered name is a document validation error. The two are
-  distinguished by shape (a `YYYY-MM-DD`-shaped string is a date; any
-  other string is a resolver name). A single date-shaped string is not a
-  one-date list — dates always come as an array, so a bare string in a
-  date-list position is always a resolver name. This is a distinction of
-  kind, not scalar sugar. This is the mechanism for feeding dynamic data (a
+  unregistered name is a document validation error. A date-list position
+  accepts exactly two forms: an array of date literals, or a resolver
+  name string. Resolver names must not be date-shaped, so a bare
+  date-shaped string (`"holidays": "2026-01-01"`) matches neither form
+  and is invalid — it is not read as a one-date list. This is a
+  distinction of kind, not scalar sugar. This is the mechanism for feeding dynamic data (a
   database, holiday computation) into a document while the document keeps
-  the *intent* — what the dates are resolved by
+  the *intent* — what the dates are resolved by. A document that uses
+  resolver names is portable only together with its resolver bindings:
+  the host's locale or default timezone never affects interpretation,
+  but resolver-backed definitions do depend on what the host binds the
+  names to. A resolver returns a list of date literals (`YYYY-MM-DD`) and
+  is responsible for covering the dates relevant to the questions being
+  asked — which years to include is the resolver's own concern.
+  Implementations validate the returned format; a resolver that fails at
+  call time is a host-side runtime error, not a document validation error
 
 ## Schedule
 
@@ -186,8 +202,8 @@ the matching days); points outside the range simply do not exist.
   `["every", N, "day"]` atom and the interval `every`) requires `from`
   (there is no way to start counting without it); otherwise both are
   optional
-- For clipping, an all-day occurrence sits at the start of its day
-  (00:00), so with `from: "2026-07-14 12:00"` the all-day occurrence of
+- For clipping, an all-day occurrence's comparison instant is 00:00 of
+  its day, so with `from: "2026-07-14 12:00"` the all-day occurrence of
   7/14 is out of range. The clipping rule is uniform and has no exceptions
 
 ### Date axes
@@ -254,11 +270,31 @@ holidays           public holidays; closed by default
 workweek           bottom layer: the weekly pattern that sets the default (omitted = Mon–Fri)
 ```
 
-- `weekday` / `weekend` / `holiday` are **questions to a single layer**
-  (putting a holiday into `business_days` makes it a working day, but it
-  is still a holiday). `business_day` / `business_holiday` are **questions
-  to the stacked conclusion** (an ordinary Saturday is in none of the
-  lists, yet by the weekly pattern it matches `business_holiday`)
+- `weekday` / `weekend` ask the **fixed calendar** and consult no
+  definition: weekday is always Monday–Friday and weekend always
+  Saturday–Sunday, regardless of `workweek` (with a Tue–Sat workweek,
+  Monday is still a weekday — and also a business holiday). `holiday`
+  asks the `holidays` list **alone** (putting a holiday into
+  `business_days` makes it a working day, but it is still a holiday)
+- `business_day` / `business_holiday` are **questions to the stacked
+  conclusion** (an ordinary Saturday is in none of the lists, yet by the
+  weekly pattern it matches `business_holiday`). `business_holiday` is
+  the exact complement of `business_day`: every day is exactly one of
+  the two. The decision procedure:
+
+```text
+business_day(date):
+    if date ∈ business_days:      true     — the top layer wins
+    if date ∈ business_holidays:  false
+    if date ∈ holidays:           false
+    otherwise:                    day-of-week(date) ∈ workweek
+                                  (workweek omitted = mon–fri)
+
+business_holiday(date) = not business_day(date)
+weekday(date)          = day-of-week(date) ∈ {mon … fri}   (workweek plays no part)
+weekend(date)          = day-of-week(date) ∈ {sat, sun}
+holiday(date)          = date ∈ holidays
+```
 - The lists are independent and may overlap; overlaps are settled by the
   layer priority
 - A document that uses `holiday` requires the `holidays` definition; one
@@ -371,7 +407,8 @@ Semantics:
   to it**. It is not `times: ["00:00"]` — a timed occurrence at 00:00 and
   an all-day occurrence of the same day are distinct occurrences and never
   collapse into one. For range clipping and ordering, an all-day
-  occurrence sits at the start of its day (00:00)
+  occurrence uses a **comparison instant**: 00:00 of its local date,
+  resolved like any other wall-clock point
 
 ### every (directly on a schedule) — an interval sequence from `from`
 
@@ -440,13 +477,15 @@ For each schedule:
    instant per RFC 5545 §3.3.5 (gap: pushed forward; overlap: first
    occurrence only)
 6. **Range clipping** — `from` / `until` resolve to instants by the same
-   rule, and an occurrence survives if its instant lies in [from, until).
+   rule, and an occurrence survives if its **comparison instant** lies in
+   [from, until). For a timed occurrence the comparison instant is its
+   instant; an all-day occurrence — which has no instant of its own — is
+   assigned one by resolving 00:00 of its local date by the same rule.
    The comparison is between **instants**, never wall-clock values: a
    boundary written at a nonexistent wall time (the DST gap) resolves
    forward like any other point, and occurrences before its resolved
    instant survive — an occurrence never vanishes because a boundary was
-   written in the gap. An all-day occurrence sits at the start of its day
-   for this comparison
+   written in the gap
 7. **Union across schedules** — the document's set is the union of the
    schedules' occurrences, with duplicates collapsing within each kind
    (timed / all-day) as defined in the document model
@@ -458,9 +497,10 @@ real need appears.
 
 - **Year cycles** (true biennial). Unlike the day cycle
   (`["every", N, "day"]`), years do not fold into a day count because
-  their lengths differ. A strict fortnight is `["every", 14, "day"]`; the
-  everyday sense of "biweekly" can also be written in the "1st and 3rd
-  Friday" form
+  their lengths differ. A strict fortnight is `["every", 14, "day"]`.
+  Many real-world "every other week" rules are in fact month-anchored —
+  "1st and 3rd Friday" — which is a **different rule** (a month with five
+  Fridays breaks the 14-day cadence) and is written as that form
 - **Relative intervals** (N seconds since the last run). That is
   throttling, not a schedule (the caller's concern). The last run time
   appears only in the caller's question interval, never in the definition
@@ -496,7 +536,8 @@ but they are defined here as semantic validation rules:
 - Presence of `from` in a schedule that uses `["every", N, "day"]`
   (cross-field constraints are outside the schema's reach; the `from` of
   the interval `every` is required by the schema as well)
-- Existence of the timezone
+- Existence of the timezone name in the IANA Time Zone Database (as
+  available to the implementation); fixed-offset strings are rejected
 
 ## Examples
 
