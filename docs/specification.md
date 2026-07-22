@@ -12,6 +12,20 @@ time, or whole days — and knows nothing about execution. "Should this fire", "
 "catch-up" do not exist in this language's vocabulary — they are the
 caller's concern, expressed through the questions the caller asks.
 
+## Conventions
+
+How this document writes time boundaries. In interval notation, a
+square bracket includes the endpoint and a parenthesis excludes it. In
+words, the boundary words carry the same distinctions and are used with
+exactly these meanings throughout:
+
+| In words | In notation | Start | End |
+|---|---|---|---|
+| from a through b | [a, b] | included | included |
+| from a until b | [a, b) | included | excluded |
+| after a, through b | (a, b] | excluded | included |
+| after a, before b | (a, b) | excluded | excluded |
+
 ## Document model
 
 A document is a JSON object with two layers:
@@ -386,7 +400,7 @@ Semantics:
   (singular, fixed). The maximum count is 24 for `"hour"`, 1,440 for
   `"minute"`, and 86,400 for `"second"` — one day's worth in each unit
 - `between` is the **half-open interval [start, end)**. "Every hour from
-  8:00 to 20:00" is the 12 points 8:00–19:00 and **20:00 is excluded**.
+  8:00 until 20:00" is the 12 points 8:00–19:00 and **20:00 is excluded**.
   The value is a window pair or `"business_hour"` (the window list of
   `calendar.business_hours`; multiple windows, e.g. with a lunch break,
   are allowed)
@@ -410,7 +424,8 @@ Semantics:
 - Times are **zero-padded HH:MM, fixed** (`"0:00"` is invalid; seconds
   cannot be written)
 - An `allday` occurrence is a **day-level occurrence: time does not apply
-  to it**. It is not `times: ["00:00"]` — a timed occurrence at 00:00 and
+  to it**. It matches on the day alone and ignores the time. It is not
+  `times: ["00:00"]` — a timed occurrence at 00:00 and
   an all-day occurrence of the same day are distinct occurrences and never
   collapse into one. For range clipping, an all-day occurrence uses a
   **comparison instant**: 00:00 of its local date, resolved like any
@@ -496,6 +511,15 @@ For each schedule:
    schedules' occurrences, with duplicates collapsing within each kind
    (timed / all-day) as defined in the document model
 
+A judgment over a period asks: is there a scheduled point after the
+previous run, through now? A point exactly at the start does not count —
+it was the previous judgment's "now", already counted; a point exactly
+at now counts in this judgment, not the next. Each judgment's "now"
+becomes the next one's start, so every point is seen exactly once.
+Within a period, an all-day occurrence stands at its comparison instant
+(00:00 of its day, as in range clipping) — a placement for the period
+judgment only, which does not turn it into a timed occurrence at 00:00.
+
 ## Deliberately unsupported
 
 Closed sets can be widened compatibly, so these are added if and when a
@@ -555,7 +579,7 @@ objects, not complete Yrnk documents.
 // the third Monday of every month at 10:00
 {"days": [["3rd", "mon"]], "times": ["10:00"]}
 
-// Mon–Fri, hourly from 8:00 to 20:00 (20:00 is excluded — half-open)
+// Mon–Fri, hourly from 8:00 until 20:00
 {"days": ["mon", "tue", "wed", "thu", "fri"],
  "times": {"every": [1, "hour"], "between": ["08:00", "20:00"]}}
 
