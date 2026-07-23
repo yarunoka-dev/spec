@@ -10,7 +10,7 @@ agreement is verified by tests.
 A Yrnk document is a **description of a set of occurrences** — points in
 time, or whole days — and knows nothing about execution. "Should this fire", "last run at", and
 "catch-up" do not exist in this language's vocabulary — they are the
-caller's concern, expressed through the questions the caller asks.
+caller's concern, expressed through the queries the caller asks.
 
 ## Conventions
 
