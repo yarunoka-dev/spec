@@ -511,6 +511,14 @@ For each schedule:
    schedules' occurrences, with duplicates collapsing within each kind
    (timed / all-day) as defined in the document model
 
+A judgment at a point asks: is the given instant an occurrence? For a
+timed occurrence the answer is instant equality — the given instant,
+ignoring anything finer than a second (no scheduled point is finer),
+equals the occurrence's instant. The comparison is between instants,
+never wall-clock values. An all-day occurrence matches on the day alone:
+the answer is yes for every instant whose local date — read in the
+document timezone — is that day.
+
 A judgment over a period asks: is there a scheduled point after the
 previous run, through now? A point exactly at the start does not count —
 it was the previous judgment's "now", already counted; a point exactly
@@ -519,6 +527,21 @@ becomes the next one's start, so every point is seen exactly once.
 Within a period, an all-day occurrence stands at its comparison instant
 (00:00 of its day, as in range clipping) — a placement for the period
 judgment only, which does not turn it into a timed occurrence at 00:00.
+
+An enumeration asks: which occurrences lie from a through b? The answer
+is the occurrence set cut to [a, b] — every timed occurrence whose
+instant, and every all-day occurrence whose comparison instant (00:00 of
+its day, as above), lies in the closed interval. Timed occurrences are
+answered as instants, all-day occurrences as dates; the two kinds stay
+distinct, as everywhere, and the answer is in ascending order of
+comparison instant — when an all-day occurrence and a timed occurrence
+share one (an all-day day and a timed point at its 00:00), the all-day
+occurrence comes first: the day precedes the points within it. Unlike
+the period judgment — whose start is excluded because that instant was
+the previous judgment's "now" — an enumeration has no previous window:
+the caller names two instants, and both are part of what it names.
+Adjacent windows that share a boundary instant therefore both contain a
+point exactly on it; a caller that means to exclude a boundary moves it.
 
 ## Deliberately unsupported
 
