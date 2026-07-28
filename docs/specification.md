@@ -64,8 +64,9 @@ A document is a JSON object with two layers:
   implementation's tz database. Zones with daylight-saving transitions
   are allowed. Wall-clock times that
   fall on a transition are resolved **per RFC 5545 §3.3.5** — a time that
-  does not exist (the spring-forward gap) is interpreted with the offset in
-  effect before the transition, which pushes it forward in real time; a
+  does not exist (a gap: the spring-forward hour, or the whole day a zone
+  skips when it moves across the date line) is interpreted with the offset
+  in effect before the transition, which pushes it forward in real time; a
   time that occurs twice (the fall-back overlap) counts only as its first
   occurrence
 - Arrays appear in two roles, distinguished by position. **List positions**
@@ -90,6 +91,13 @@ A document is a JSON object with two layers:
   occurrence at 00:00 of the same day are distinct elements. Within a
   kind, when several schedules produce the same occurrence the OR
   contains it once, and a firing decision sees it once
+- An all-day occurrence stands at the **start of its day** on the document
+  timezone's clock. The day is chosen on the calendar; its start then
+  resolves like any other wall-clock point, so where a zone skips a day
+  outright the push crosses midnight and the occurrence stands on the day
+  that follows — that resulting day is the one it denotes. Two calendar
+  days whose starts resolve to the same instant are therefore one
+  occurrence
 
 ## Versioning
 
@@ -211,7 +219,7 @@ the matching days); points outside the range simply do not exist.
   does not exist in this position (write the next day's `00:00`; the
   interval being half-open makes that mean exactly "through that day")
 - Interpretation uses the document `timezone`. A wall time that does not
-  exist (the DST gap) resolves by the same rule as scheduled points
+  exist (a gap) resolves by the same rule as scheduled points
   (RFC 5545 §3.3.5)
 - A point at `from` is included; a point at `until` is not (the same
   half-open convention as `between`)
@@ -221,7 +229,7 @@ the matching days); points outside the range simply do not exist.
   `["every", N, "day"]` atom and the interval `every`) requires `from`
   (there is no way to start counting without it); otherwise both are
   optional
-- For clipping, an all-day occurrence's comparison instant is 00:00 of
+- For clipping, an all-day occurrence's comparison instant is the start of
   its day, so with `from: "2026-07-14 12:00"` the all-day occurrence of
   7/14 is out of range. The clipping rule is uniform and has no exceptions
 
@@ -412,7 +420,7 @@ Semantics:
   with `business_hours` of 09:00–12:00 and 13:00–18:00, an hourly grid
   anchors at 09:00 and at 13:00
 - The grid is enumerated on the local wall clock, then each point is
-  resolved to an instant per RFC 5545 §3.3.5. When the DST gap folds
+  resolved to an instant per RFC 5545 §3.3.5. When a gap folds
   several wall times onto one instant, the set contains that one point;
   a wall time that occurs twice in the overlap counts only as its first
   occurrence
@@ -428,8 +436,8 @@ Semantics:
   `times: ["00:00"]` — a timed occurrence at 00:00 and
   an all-day occurrence of the same day are distinct occurrences and never
   collapse into one. For range clipping, an all-day occurrence uses a
-  **comparison instant**: 00:00 of its local date, resolved like any
-  other wall-clock point
+  **comparison instant**: the start of its day, resolved like any other
+  wall-clock point
 
 ### every (directly on a schedule) — an interval sequence from `from`
 
@@ -501,12 +509,11 @@ For each schedule:
 6. **Range clipping** — `from` / `until` resolve to instants by the same
    rule, and an occurrence survives if its **comparison instant** lies in
    [from, until). For a timed occurrence the comparison instant is its
-   instant; an all-day occurrence — which has no instant of its own — is
-   assigned one by resolving 00:00 of its local date by the same rule.
-   The comparison is between **instants**, never wall-clock values. A
-   boundary written at a nonexistent wall time (the DST gap) resolves
-   forward like any other wall-clock point; no special clipping rule
-   applies to DST gaps
+   instant; for an all-day occurrence it is the start of its day, which
+   the occurrence already stands at. The comparison is between
+   **instants**, never wall-clock values. A boundary written at a
+   nonexistent wall time (a gap) resolves forward like any other
+   wall-clock point; no special clipping rule applies to gaps
 7. **Union across schedules** — the document's set is the union of the
    schedules' occurrences, with duplicates collapsing within each kind
    (timed / all-day) as defined in the document model
@@ -524,14 +531,14 @@ previous run, through now? A point exactly at the start does not count —
 it was the previous judgment's "now", already counted; a point exactly
 at now counts in this judgment, not the next. Each judgment's "now"
 becomes the next one's start, so every point is seen exactly once.
-Within a period, an all-day occurrence stands at its comparison instant
-(00:00 of its day, as in range clipping) — a placement for the period
-judgment only, which does not turn it into a timed occurrence at 00:00.
+Within a period, an all-day occurrence is taken at its comparison instant
+(the start of its day, as in range clipping), which does not make it a
+timed occurrence at 00:00.
 
 An enumeration asks: which occurrences lie from a through b? The answer
 is the occurrence set cut to [a, b] — every timed occurrence whose
-instant, and every all-day occurrence whose comparison instant (00:00 of
-its day, as above), lies in the closed interval. Timed occurrences are
+instant, and every all-day occurrence whose comparison instant (the start
+of its day, as above), lies in the closed interval. Timed occurrences are
 answered as instants, all-day occurrences as dates; the two kinds stay
 distinct, as everywhere, and the answer is in ascending order of
 comparison instant — when an all-day occurrence and a timed occurrence
