@@ -229,9 +229,12 @@ the matching days); points outside the range simply do not exist.
   `["every", N, "day"]` atom and the interval `every`) requires `from`
   (there is no way to start counting without it); otherwise both are
   optional
-- For clipping, an all-day occurrence's comparison instant is the start of
-  its day, so with `from: "2026-07-14 12:00"` the all-day occurrence of
-  7/14 is out of range. The clipping rule is uniform and has no exceptions
+- A timed occurrence is clipped by its instant. An all-day occurrence is
+  clipped by its day: it survives when that day overlaps the range at all,
+  so with `from: "2026-07-14 12:00"` the all-day occurrence of 7/14 stays
+  — the day is still partly inside. A day carries no time, so asking
+  whether it starts before a boundary is asking a question it cannot
+  answer
 
 ### Date axes
 
@@ -435,9 +438,9 @@ Semantics:
   to it**. It matches on the day alone and ignores the time. It is not
   `times: ["00:00"]` — a timed occurrence at 00:00 and
   an all-day occurrence of the same day are distinct occurrences and never
-  collapse into one. For range clipping, an all-day occurrence uses a
-  **comparison instant**: the start of its day, resolved like any other
-  wall-clock point
+  collapse into one. Because it carries no time, every question about a
+  range answers for it by **whether its day overlaps that range**, never
+  by comparing a time within the day
 
 ### every (directly on a schedule) — an interval sequence from `from`
 
@@ -507,13 +510,13 @@ For each schedule:
    instant per RFC 5545 §3.3.5 (gap: pushed forward; overlap: first
    occurrence only)
 6. **Range clipping** — `from` / `until` resolve to instants by the same
-   rule, and an occurrence survives if its **comparison instant** lies in
-   [from, until). For a timed occurrence the comparison instant is its
-   instant; for an all-day occurrence it is the start of its day, which
-   the occurrence already stands at. The comparison is between
-   **instants**, never wall-clock values. A boundary written at a
-   nonexistent wall time (a gap) resolves forward like any other
-   wall-clock point; no special clipping rule applies to gaps
+   rule. A timed occurrence survives if its instant lies in
+   [from, until); the comparison is between **instants**, never
+   wall-clock values. An all-day occurrence survives if its **day
+   overlaps** [from, until) — that is, if the range holds any instant of
+   that day. A boundary written at a nonexistent wall time (a gap)
+   resolves forward like any other wall-clock point; no special clipping
+   rule applies to gaps
 7. **Union across schedules** — the document's set is the union of the
    schedules' occurrences, with duplicates collapsing within each kind
    (timed / all-day) as defined in the document model
@@ -530,20 +533,23 @@ A judgment over a period asks: is there a scheduled point after the
 previous run, through now? A point exactly at the start does not count —
 it was the previous judgment's "now", already counted; a point exactly
 at now counts in this judgment, not the next. Each judgment's "now"
-becomes the next one's start, so every point is seen exactly once.
-Within a period, an all-day occurrence is taken at its comparison instant
-(the start of its day, as in range clipping), which does not make it a
-timed occurrence at 00:00.
+becomes the next one's start, so every timed point is seen exactly once.
+Within a period, an all-day occurrence counts when its day overlaps the
+period — the same reading as everywhere else. A period that lies inside
+one day therefore answers yes for that day's all-day occurrence, however
+late in the day it is asked: a day is due for as long as it lasts. That
+does not make it a timed occurrence at 00:00.
 
 An enumeration asks: which occurrences lie from a through b? The answer
 is the occurrence set cut to [a, b] — every timed occurrence whose
-instant, and every all-day occurrence whose comparison instant (the start
-of its day, as above), lies in the closed interval. Timed occurrences are
+instant lies in the closed interval, and every all-day occurrence whose
+day overlaps it. Timed occurrences are
 answered as instants, all-day occurrences as dates; the two kinds stay
-distinct, as everywhere, and the answer is in ascending order of
-comparison instant — when an all-day occurrence and a timed occurrence
-share one (an all-day day and a timed point at its 00:00), the all-day
-occurrence comes first: the day precedes the points within it. Unlike
+distinct, as everywhere, and the answer is in ascending order, an
+all-day occurrence taking the start of its day as its place in the order.
+When that coincides with a timed occurrence (a timed point at the day's
+00:00), the all-day occurrence comes first: the day precedes the points
+within it. Unlike
 the period judgment — whose start is excluded because that instant was
 the previous judgment's "now" — an enumeration has no previous window:
 the caller names two instants, and both are part of what it names.
