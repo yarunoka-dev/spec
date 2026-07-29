@@ -41,7 +41,7 @@ A document is a JSON object with two layers:
   "timezone": "Asia/Tokyo",
   "calendar": {
     "holidays": ["2026-01-01", "2026-01-12"],
-    "custom": { "founding-day": ["2026-10-01"] }
+    "date_sets": { "founding-day": ["2026-10-01"] }
   },
   "schedules": [
     {"days": ["founding-day"], "allday": true}
@@ -119,8 +119,8 @@ The first public version is 1.0.
 
 The calendar is the set of date and time-window definitions that schedules
 refer to. Its top-level keys are a closed set of **reserved keys** (the
-built-in definitions); under `custom` is an **open namespace** (the user's
-own named date lists). A calendar contains wall-clock dates and times
+built-in definitions); under `date_sets` is an **open namespace** (the
+user's own named date lists). A calendar contains wall-clock dates and times
 only and defines no timezone of its own: the timezone is declared at the
 document level, and a calendar — like the schedules — is written on that
 premise.
@@ -132,9 +132,9 @@ premise.
   "business_days": [],
   "workweek": ["mon", "tue", "wed", "thu", "fri"],
   "business_hours": [["09:00", "12:00"], ["13:00", "18:00"]],
-  "custom": {
+  "date_sets": {
     "founding-day": ["2026-10-01"],
-    "garbage-day": "garbage-days"
+    "closing-day": ["2026-12-29", "2026-12-30"]
   }
 }
 ```
@@ -142,15 +142,18 @@ premise.
 - **The built-in definitions are special**: `holidays` /
   `business_holidays` / `business_days` / `workweek` carry the layer-model
   semantics (below), and `business_hours` is the window list behind the
-  `business_hour` vocabulary. `custom` entries take no part in the layers;
-  a custom name is a flat "membership in a set" and nothing more
-- **Custom values are date lists only** — windows cannot be aliased. A
-  date set can be large and dynamic, so naming one is a real need; a
-  window is a short literal, written in place where it is used, so an
+  `business_hour` vocabulary. `date_sets` entries take no part in the
+  layers; such a name is a flat "membership in a set" and nothing more
+- **A `date_sets` value is a list of date literals** — nothing else. This
+  is where the document *contains* the dates it names; a name whose dates
+  come from elsewhere is not written here but left to a resolver, so the
+  entry never stands for another name. Windows cannot be named at all: a
+  date set can be large and dynamic, so naming one is a real need, but a
+  window is a short literal written in place where it is used, so an
   aliasing mechanism would buy nothing. The only shared window list is
-  the built-in `business_hours`. Custom key names follow the rules every
-  name follows: they must not collide with reserved words and must not
-  look like literals (digits only, date-shaped, time-shaped)
+  the built-in `business_hours`. A `date_sets` key follows the rules every
+  name follows: it must not collide with reserved words and must not
+  look like a literal (digits only, date-shaped, time-shaped)
 - **Name references**: wherever a date list is expected, a **name** may be
   written instead of the array (`"holidays": "yasumi-jp"`). A date-list
   position accepts exactly two forms: an array of date literals, or a
@@ -159,12 +162,12 @@ premise.
   not read as a one-date list. This is a distinction of kind, not scalar
   sugar
 - **A name denotes a date set, and all names share one namespace.** A name
-  is resolved one of two ways: **inside** the document, by a `custom`
+  is resolved one of two ways: **inside** the document, by a `date_sets`
   entry that carries the date list itself, or **outside** it, by a binding
   the host supplies for that name (a **resolver**). Which of the two a
   name is makes no difference to where it may be written — every date-list
   position takes a name of either kind, and so does the `days` axis. A
-  `custom` key and a resolver name must therefore never be the same
+  `date_sets` key and a resolver name must therefore never be the same
   string. A reference to a name that is neither defined nor bound is a
   document validation error
 - **Resolvers are how dynamic data enters a document** (a database, a
@@ -259,13 +262,13 @@ the matching days); points outside the range simply do not exist.
 | Ordinal tuple | `["3rd", "mon"]` / `["last", "fri"]` | the third Monday / last Friday of the month |
 | End of month | `"last_day_of_month"` | the only month boundary that moves, so it is the one special word |
 | Day-cycle tuple | `["every", 2, "day"]` | every N days (below) |
-| Name | `"founding-day"` | a reference to a date set — a `calendar.custom` entry, or a name the host binds to a resolver |
+| Name | `"founding-day"` | a reference to a date set — a `calendar.date_sets` entry, or a name the host binds to a resolver |
 
 - The ordinals are the six words `1st`–`5th`, `last`. In a month without a
   fifth week, a `5th` tuple simply does not match. A tuple is always
   written as an element of the enumeration (`{"days": [["3rd", "mon"]]}`)
 - A date literal (`"2026-10-01"`) cannot be written directly in `days`.
-  Give the date a name under `custom` and refer to it
+  Give the date a name under `date_sets` and refer to it
 - There are no negative day numbers (`-1` = end of month). The day before
   the end of the month is written `{"if": ["next", "last_day_of_month"]}`
 
@@ -599,8 +602,8 @@ structural JSON Schema validation. Some may be expressible in JSON Schema,
 but they are defined here as semantic validation rules:
 
 - Resolvability of every name (a name that is neither defined under
-  `custom` nor bound to a resolver is an error), and the absence of
-  collisions between a `custom` key and a resolver name
+  `date_sets` nor bound to a resolver is an error), and the absence of
+  collisions between a `date_sets` key and a resolver name
 - Presence of the calendar entries required by the calendar vocabulary in
   use
 - start < end for every time window, and non-overlap between windows
