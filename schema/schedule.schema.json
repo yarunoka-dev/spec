@@ -100,7 +100,7 @@
                     "1st", "2nd", "3rd", "4th", "5th", "last",
                     "not", "prev", "next", "or_same",
                     "hour", "minute", "second", "day",
-                    "version", "timezone", "calendar", "schedules",
+                    "version", "timezone", "resolvers", "calendar", "schedules",
                     "years", "months", "days", "shift", "if", "times", "allday", "every", "between", "from", "until",
                     "holidays", "business_holidays", "business_days", "workweek", "business_hours", "date_sets"
                 ]}},
