@@ -148,29 +148,37 @@ premise.
   date set can be large and dynamic, so naming one is a real need; a
   window is a short literal, written in place where it is used, so an
   aliasing mechanism would buy nothing. The only shared window list is
-  the built-in `business_hours`. Custom key names must
-  not collide with reserved words and must not look like literals (digits
-  only, date-shaped, time-shaped)
-- **Resolver name references**: wherever a date list is expected, a string
-  **resolver name** may be written instead (`"holidays": "yasumi-jp"`).
-  The runtime registers a name-to-function mapping, and a reference to an
-  unregistered name is a document validation error. A date-list position
-  accepts exactly two forms: an array of date literals, or a resolver
-  name string. Resolver names must not be date-shaped, so a bare
-  date-shaped string (`"holidays": "2026-01-01"`) matches neither form
-  and is invalid — it is not read as a one-date list. This is a
-  distinction of kind, not scalar sugar. This is the mechanism for feeding dynamic data (a
-  database, holiday computation) into a document while the document keeps
-  the *intent* — what the dates are resolved by. A document that uses
-  resolver names is portable only together with its resolver bindings:
-  the host's locale or default timezone never affects interpretation,
-  but resolver-backed definitions do depend on what the host binds the
-  names to. Conceptually a resolver denotes a **date set**; how a host
-  materializes it — the call signature, and whether a relevant range is
-  communicated — is implementation API, outside this language.
-  Implementations validate that what a resolver yields is a list of date
-  literals (`YYYY-MM-DD`); a resolver that fails at call time is a
-  host-side runtime error, not a document validation error
+  the built-in `business_hours`. Custom key names follow the rules every
+  name follows: they must not collide with reserved words and must not
+  look like literals (digits only, date-shaped, time-shaped)
+- **Name references**: wherever a date list is expected, a **name** may be
+  written instead of the array (`"holidays": "yasumi-jp"`). A date-list
+  position accepts exactly two forms: an array of date literals, or a
+  name. Names must not be date-shaped, so a bare date-shaped string
+  (`"holidays": "2026-01-01"`) matches neither form and is invalid — it is
+  not read as a one-date list. This is a distinction of kind, not scalar
+  sugar
+- **A name denotes a date set, and all names share one namespace.** A name
+  is resolved one of two ways: **inside** the document, by a `custom`
+  entry that carries the date list itself, or **outside** it, by a binding
+  the host supplies for that name (a **resolver**). Which of the two a
+  name is makes no difference to where it may be written — every date-list
+  position takes a name of either kind, and so does the `days` axis. A
+  `custom` key and a resolver name must therefore never be the same
+  string. A reference to a name that is neither defined nor bound is a
+  document validation error
+- **Resolvers are how dynamic data enters a document** (a database, a
+  holiday computation) while the document keeps the *intent* — what the
+  dates are resolved by, rather than what they happened to be at the time
+  of writing. A document that uses resolver-backed names is portable only
+  together with its bindings: the host's locale or default timezone never
+  affects interpretation, but a resolver-backed name does depend on what
+  the host binds it to. How a host materializes a resolver — the call
+  signature, and whether a relevant range is communicated — is
+  implementation API, outside this language. Implementations validate that
+  what a resolver yields is a list of date literals (`YYYY-MM-DD`); a
+  resolver that fails at call time is a host-side runtime error, not a
+  document validation error
 
 ## Schedule
 
@@ -251,7 +259,7 @@ the matching days); points outside the range simply do not exist.
 | Ordinal tuple | `["3rd", "mon"]` / `["last", "fri"]` | the third Monday / last Friday of the month |
 | End of month | `"last_day_of_month"` | the only month boundary that moves, so it is the one special word |
 | Day-cycle tuple | `["every", 2, "day"]` | every N days (below) |
-| Custom name | `"founding-day"` | a reference to a date list in `calendar.custom` |
+| Name | `"founding-day"` | a reference to a date set — a `calendar.custom` entry, or a name the host binds to a resolver |
 
 - The ordinals are the six words `1st`–`5th`, `last`. In a month without a
   fifth week, a `5th` tuple simply does not match. A tuple is always
@@ -590,8 +598,9 @@ The following constraints are validated by implementations in addition to
 structural JSON Schema validation. Some may be expressible in JSON Schema,
 but they are defined here as semantic validation rules:
 
-- Resolvability of custom references and resolver names (undefined or
-  unregistered is an error)
+- Resolvability of every name (a name that is neither defined under
+  `custom` nor bound to a resolver is an error), and the absence of
+  collisions between a `custom` key and a resolver name
 - Presence of the calendar entries required by the calendar vocabulary in
   use
 - start < end for every time window, and non-overlap between windows
