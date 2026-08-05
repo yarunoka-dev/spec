@@ -99,11 +99,12 @@ A document is a JSON object with three layers:
   contains it once, and a firing decision sees it once
 - An all-day occurrence stands at the **start of its day** on the document
   timezone's clock. The day is chosen on the calendar; its start then
-  resolves like any other wall-clock point, so where a zone skips a day
-  outright the push crosses midnight and the occurrence stands on the day
-  that follows — that resulting day is the one it denotes. Two calendar
-  days whose starts resolve to the same instant are therefore one
-  occurrence
+  resolves like any other wall-clock point: a midnight that occurs twice
+  (the fall-back overlap) stands at its first occurrence, and where a
+  zone skips a day outright the push crosses midnight and the occurrence
+  stands on the day that follows — that resulting day is the one it
+  denotes. Two calendar days whose starts resolve to the same instant are
+  therefore one occurrence
 
 ## Versioning
 
@@ -268,9 +269,10 @@ the matching days); points outside the range simply do not exist.
   range starting at the top of a day writes `00:00` explicitly. `24:00`
   does not exist in this position (write the next day's `00:00`; the
   interval being half-open makes that mean exactly "through that day")
-- Interpretation uses the document `timezone`. A wall time that does not
-  exist (a gap) resolves by the same rule as scheduled points
-  (RFC 5545 §3.3.5)
+- Interpretation uses the document `timezone`. A boundary on a transition
+  resolves by the same rule as scheduled points (RFC 5545 §3.3.5): a wall
+  time that does not exist (a gap) is pushed forward, and one that occurs
+  twice (the fall-back overlap) stands at its first occurrence
 - A point at `from` is included; a point at `until` is not (the same
   half-open convention as `between`)
 - Each is independent (only `from`, only `until`, or both). With both,
@@ -564,9 +566,10 @@ For each schedule:
    [from, until); the comparison is between **instants**, never
    wall-clock values. An all-day occurrence survives if its **day
    overlaps** [from, until) — that is, if the range holds any instant of
-   that day. A boundary written at a nonexistent wall time (a gap)
-   resolves forward like any other wall-clock point; no special clipping
-   rule applies to gaps
+   that day. A boundary written on a transition resolves like any other
+   wall-clock point — a nonexistent wall time (a gap) forward, a repeated
+   one (the fall-back overlap) to its first occurrence; no special
+   clipping rule applies to either
 7. **Union across schedules** — the document's set is the union of the
    schedules' occurrences, with duplicates collapsing within each kind
    (timed / all-day) as defined in the document model
