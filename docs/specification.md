@@ -305,6 +305,15 @@ the matching days); points outside the range simply do not exist.
 | Day-cycle tuple | `["every", 2, "day"]` | every N days (below) |
 | Name | `"founding-day"` | a reference to a date set — a `calendar.date_sets` entry, or a name the host binds to a resolver |
 
+- A day number a month does not have **simply does not match** — `[31]`
+  in a 30-day month produces no occurrence, exactly as a `5th` tuple in a
+  month without a fifth week does not. Evaluation is a predicate over the
+  days a month really has, so a nonexistent day never rolls over: a date
+  library asked for April 31st may quietly answer May 1st, and that day
+  is not an occurrence
+- A day number is therefore not a spelling of the end of the month —
+  `[31]` reaches only the months that have a 31st. The end of the month
+  is written `last_day_of_month`
 - The ordinals are the six words `1st`–`5th`, `last`. In a month without a
   fifth week, a `5th` tuple simply does not match. A tuple is always
   written as an element of the enumeration (`{"days": [["3rd", "mon"]]}`)
