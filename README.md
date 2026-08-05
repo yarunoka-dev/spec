@@ -23,8 +23,8 @@ against in its `version` field. See the
 [Versioning section](docs/specification.md#versioning) of the
 specification.
 
-**Status: under initial development. Version 1.0 has not been released
-yet**; everything in this repository may still change without notice.
+**Released versions are the git tags of this repository** (`1.0` is the
+first); `main` may carry changes not yet in any release.
 
 ## License
 
