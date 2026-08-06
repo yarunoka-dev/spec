@@ -40,13 +40,18 @@ A document is a JSON object with three layers:
 - **Reading directives** — `version` and `timezone` declare *how to
   interpret* the document before any content is read
 - **External requirements** — `resolvers` declares what the document
-  leaves to its host. The only optional layer: a document that resolves
-  every name itself has nothing to declare
+  leaves to its host. Optional: a document that resolves every name
+  itself has nothing to declare
 - **Content** — `calendar` (the definitions) and `schedules` (the
   expressions)
 
+Beside the layers, the document and each schedule may carry the
+**annotations** `label` and `description` — what this is, for humans.
+The language never reads them (see the annotations section).
+
 ```json
 {
+  "label": "Company calendar",
   "version": "1.0",
   "timezone": "Asia/Tokyo",
   "resolvers": ["yasumi-jp"],
@@ -55,7 +60,7 @@ A document is a JSON object with three layers:
     "date_sets": { "founding-day": ["2026-10-01"] }
   },
   "schedules": [
-    {"days": ["founding-day"], "allday": true}
+    {"label": "Founding day", "days": ["founding-day"], "allday": true}
   ]
 }
 ```
@@ -67,6 +72,8 @@ A document is a JSON object with three layers:
 | `resolvers` | | The names this document leaves to its host to resolve (see below). Omitted when there are none |
 | `calendar` | | The definitions part (see below) |
 | `schedules` | ✓ | The list of schedules. **The list is an OR of complete schedules** (a bare object is not allowed) |
+| `label` | | Annotation: one line saying what this document is (see the annotations section) |
+| `description` | | Annotation: a longer note; LF is the one permitted line break |
 
 - Unknown keys are an error (closed set — the same rule applies at the
   document, calendar, schedule, and times levels)
@@ -128,6 +135,45 @@ document declares which spec version it is written against.
   not know
 
 The first public version is 1.0.
+
+## Annotations — label and description
+
+The document and each schedule may carry two annotation fields:
+`label`, a single line of at most 100 characters, and `description`,
+of at most 1,000 characters in which LF is the one permitted line
+break. The caps are generous starting points rather than derived
+limits — raising them is a compatible change, lowering them would not
+be.
+
+**Annotations are inert.** Their values take no part in the language:
+they must not affect validation of the rest of the document,
+evaluation, or the answer to any query — two documents that differ
+only in their annotations denote the same set of occurrences. An
+implementation preserves them unmodified through parsing and
+serialization, hands them to its caller as written, and must not
+branch on their content.
+
+**Annotations are not identifiers.** Nothing requires a label to be
+unique, and nothing in the language refers to a schedule by it.
+Identity — keys, deduplication, cross-references — is the caller's
+concern, like everything else about how documents are stored.
+
+The value is text meant for human eyes, and the character rules
+protect exactly that reading: control characters are forbidden (in
+`description`, LF is the single exception), and so are the invisible
+characters that can make a reader see something other than what is
+written — the zero-width space, the word joiner, the byte-order mark,
+and the bidirectional embedding, override, and isolate controls.
+ZWJ/ZWNJ and the bidirectional marks remain legal: emoji sequences and
+several scripts cannot be written without them. An annotation must
+contain at least one non-whitespace character — "no annotation" is
+spelled by omitting the key, never by an empty string.
+
+An annotation is destined for displays the language knows nothing
+about — a web page showing the label, a log line quoting it. The
+language guarantees only the rules above; escaping for the output
+medium is the consumer's responsibility, as for any externally
+supplied text.
 
 ## resolvers — what the document leaves to its host
 
@@ -238,7 +284,9 @@ premise.
 
 The fields are `years` / `months` / `days` (the date axes), `shift` / `if`
 (the date modifiers), `times` | `allday` | `every` (the time part —
-**exactly one is required**), and `from` / `until` (the validity range).
+**exactly one is required**), `from` / `until` (the validity range), and
+the annotations `label` / `description` (inert — see their section; they
+take no part in anything below).
 
 The algebra has three tiers: alternatives within a date-axis array are
 combined with OR, fields within one schedule are combined with AND, and
@@ -697,6 +745,9 @@ objects, not complete Yrnk documents.
 
 // payday: the 25th, moved to the previous business day on days off
 {"days": [25], "shift": ["prev", "or_same", "business_day"], "times": ["10:00"]}
+
+// the same rule wearing its name (the label plays no part in evaluation)
+{"label": "Payday transfer", "days": [25], "shift": ["prev", "or_same", "business_day"], "times": ["10:00"]}
 
 // last business day of the month at 17:00
 {"days": ["last_day_of_month"], "shift": ["prev", "or_same", "business_day"], "times": ["17:00"]}

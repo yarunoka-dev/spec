@@ -18,6 +18,8 @@ differs, the specification governs.
 | `resolvers` | | Non-empty list of names the host must bind; omitted when there are none |
 | `calendar` | | The definitions (below) |
 | `schedules` | ✓ | Non-empty list of schedules, combined with OR |
+| `label` | | Annotation (below): one line, 1–100 characters |
+| `description` | | Annotation (below): 1–1,000 characters, LF as the only line break |
 
 Unknown keys are an error at every level — document, calendar,
 schedule, and the times object.
@@ -77,6 +79,8 @@ required definitions is a document validation error.
 | `every` | `[count, unit]` | Time part: an interval sequence anchored at `from` |
 | `from` | `"YYYY-MM-DD HH:MM"` | Validity start, inclusive |
 | `until` | `"YYYY-MM-DD HH:MM"` | Validity end, exclusive |
+| `label` | string | Annotation (below); inert |
+| `description` | string | Annotation (below); inert |
 
 - **Exactly one of `times` / `allday` / `every` is required**
 - A schedule with a top-level `every` takes no `years` / `months` /
@@ -85,6 +89,25 @@ required definitions is a document validation error.
 - An omitted date axis means no restriction on that axis
 - The algebra: within an axis's array — OR; between fields — AND;
   between schedules — OR
+
+## Annotations
+
+`label` and `description` may appear on the document and on each
+schedule. They are **inert**: never part of validation, evaluation, or
+any query's answer, preserved unmodified through round-trips, and not
+identifiers (no uniqueness, no referring to a schedule by label).
+
+| Field | Form |
+|---|---|
+| `label` | One line; 1–100 characters |
+| `description` | 1–1,000 characters; LF as the only line break |
+
+- Control characters are forbidden (LF in `description` is the single
+  exception), as are ZWSP, the word joiner, the BOM, and the bidi
+  embedding / override / isolate controls. ZWJ / ZWNJ and the bidi
+  marks are legal
+- Must contain at least one non-whitespace character — omit the key
+  rather than write an empty annotation
 
 ## Day atoms
 
@@ -196,6 +219,7 @@ hour minute second day
 version timezone resolvers calendar schedules
 years months days shift if times allday every between from until
 holidays business_holidays business_days workweek business_hours date_sets
+label description
 ```
 
 ## Validation beyond the schema
