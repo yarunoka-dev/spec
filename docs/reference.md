@@ -6,7 +6,7 @@ sidebar:
 ---
 
 This page restates the language as lookup tables. The
-[specification](specification) is the normative text; where wording
+[specification](../specification/) is the normative text; where wording
 differs, the specification governs.
 
 ## Document keys
@@ -223,5 +223,5 @@ computed dates anchored to a fixed date · anything that crosses the
 date plane and the time plane · windows that cross midnight ·
 per-weekday business hours · user-defined window names · definition
 macros. The reasoning is in the specification's
-[Deliberately unsupported](specification#deliberately-unsupported)
+[Deliberately unsupported](../specification/#deliberately-unsupported)
 section.
