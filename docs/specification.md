@@ -1,4 +1,9 @@
-# Yrnk Schedule DSL Specification (version 1.0)
+---
+title: Specification
+description: The Yrnk schedule DSL, version 1.0 — the normative definition of the language, its syntax and its semantics.
+sidebar:
+  order: 3
+---
 
 Yrnk is a JSON DSL for describing calendar-aware schedules. **Yrnk** is
 short for Yarunoka: Yarunoka is the project, and Yrnk is the notation. The
