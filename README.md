@@ -13,7 +13,7 @@ Language implementations conform to what is defined here.
 | Path | Content |
 |---|---|
 | [`schema/`](schema/) | JSON Schemas (draft 2020-12) — the authoritative syntax. Split into `document` / `calendar` / `schedule` / `primitives` so each unit is independently usable |
-| [`docs/specification.md`](docs/specification.md) | The specification — the document model and the semantics of the language |
+| [`docs/`](docs/) | The language documentation — the concepts behind the language, the specification, the reference, and the implementer's guides |
 
 ## Versioning
 
