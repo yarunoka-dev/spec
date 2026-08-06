@@ -1,0 +1,44 @@
+# Guardrail CI, not a required check: it keeps obvious breakage out of
+# main, while releases stay a deliberate act (the spec version axis moves
+# by decision, not by automation).
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  schemas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Compiling the document schema resolves the other three through its
+      # references, so one compile validates the whole set as JSON Schema
+      # draft 2020-12. The same command runs by hand.
+      - name: Compile the schemas
+        run: >-
+          npx --yes ajv-cli@5.0.0 compile --spec=draft2020
+          -r "schema/primitives.schema.json"
+          -r "schema/calendar.schema.json"
+          -r "schema/schedule.schema.json"
+          -s "schema/document.schema.json"
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check docs/ against the docs convention
+        uses: yarunoka-dev/.github/actions/docs-check@main
+        with:
+          vocabulary: concepts,guides,reference,specification
