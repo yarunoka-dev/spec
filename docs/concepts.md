@@ -35,20 +35,21 @@ specified on its own.
 
 ## A description of a set of occurrences
 
-A Yrnk document is a pure description of a **set of occurrences** —
-points in time, or whole days. It is data, not behavior: nothing in the
-language can start a job, remember a last run, or catch up on missed
-work. "Should this fire", "last ran at", "run it twice to make up" are
-simply not words this language has.
+A Yrnk document, interpreted in an evaluation environment, is a pure
+description of a **set of occurrences**: points in time or whole days.
+It is data, not behavior: nothing in the language can start a job,
+remember a last run, or catch up on missed work. "Should this fire",
+"last ran at", and "run it twice to make up" do not exist in this
+language's vocabulary.
 
 That line is deliberate, and it is what keeps an engine **pure**. A
-document describes a set of points; answers appear only when a caller
-asks a **query**. The evaluation model defines three: is this instant
-an occurrence (a judgment at a point)? was there an occurrence after
-the last run, through now (a judgment over a period)? which occurrences
-lie in this range (an enumeration)? Everything stateful — firing,
-retries, throttling — stays on the caller's side of the line, where it
-belongs.
+document and its environment describe a set of points; answers appear
+only when a caller asks a **query**. The evaluation model defines three:
+is this instant an occurrence (a judgment at a point)? was there an
+occurrence after the last run, through now (a judgment over a period)?
+which occurrences lie in this range (an enumeration)? Execution state
+and retry policy stay on the caller's side of the line, where they
+belong.
 
 ## Definitions and expressions
 
@@ -75,11 +76,11 @@ to be decided.
 
 A document declares how to read it. The timezone is written in the
 document — the host's locale or default timezone never changes what a
-schedule means. What the zone name denotes — the wall-to-instant
-mapping — comes from the implementation's tz database. The spec
-version is written in the document, and an
-implementation that does not know that version must reject the document
-rather than guess.
+schedule means. The zone name's wall-to-instant mapping comes from the
+evaluation environment through the
+implementation's tz database. The spec version is written in the
+document, and an implementation that does not know that version must
+reject the document rather than guess.
 
 What a document cannot contain — this year's public holidays as
 computed by a library, closures kept in a database — it declares
@@ -124,11 +125,14 @@ explicit list of such deliberate omissions.
 Yarunoka puts the specification at the top: the language is defined
 here, language implementations conform to it, and their agreement is
 checked by a shared conformance suite rather than by comparing
-implementations to each other. What the specification guarantees
-between implementations is document compatibility: every
-implementation that knows the declared version reads the same
-document as the same schedule, and conforming implementations are
-then expected — as a consequence, not a promise — to agree on the
-occurrences. That is the goal: write a
-schedule once, and store, ship, and judge it across the runtimes of
-one product.
+implementations to each other. A reader checks source-text properties
+that JSON values cannot retain, then applies the validity rules of the
+declared version. Readers that know the version and follow both sets of
+rules produce the same document value.
+
+Evaluation also reads an environment: timezone rules and the date sets
+bound to declared resolvers. Implementations given the same document and
+query return the same result when their environments are equivalent for
+that document. Different tzdb rules or resolver values can produce
+different occurrences. A product that supplies equivalent environments
+can store, ship, and judge one schedule across its runtimes.

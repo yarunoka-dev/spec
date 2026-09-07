@@ -14,8 +14,9 @@ is the source of authority. The JSON Schemas under
 machine-readable rendition of what they can express. Implementations
 must conform to both, and their agreement is verified by tests.
 
-A Yrnk document is a **description of a set of occurrences** — points in
-time, or whole days — and knows nothing about execution. "Should this fire", "last run at", and
+A Yrnk document, interpreted in an evaluation environment, is a
+**description of a set of occurrences**: points in time or whole days. It
+knows nothing about execution. "Should this fire", "last run at", and
 "catch-up" do not exist in this language's vocabulary — they are the
 caller's concern, expressed through the queries the caller asks.
 
@@ -68,7 +69,7 @@ The language never reads them (see the annotations section).
 | Key | Required | Meaning |
 |---|---|---|
 | `version` | ✓ | The spec version this document is written against, as an `"x.y"` string. Implementations must reject versions they do not know rather than silently interpreting them |
-| `timezone` | ✓ | The timezone in which every schedule is interpreted. **The document, not the host's default timezone or locale, is authoritative** (resolver-backed names additionally depend on the supplied bindings — see the resolvers section — and the wall-to-instant mapping follows the implementation's tz database) |
+| `timezone` | ✓ | The timezone in which every schedule is interpreted. **The document, not the host's default timezone or locale, is authoritative** (resolver-backed names also depend on supplied bindings; see the resolvers section; the wall-to-instant mapping follows the evaluation environment's zone rules) |
 | `resolvers` | | The names this document leaves to its host to resolve (see below). Omitted when there are none |
 | `calendar` | | The definitions part (see below) |
 | `schedules` | ✓ | The list of schedules. **The list is an OR of complete schedules** (a bare object is not allowed) |
@@ -80,8 +81,8 @@ The language never reads them (see the annotations section).
 - `timezone` is an **IANA Time Zone Database name** (`Asia/Tokyo`,
   `UTC`). Fixed offsets (`+09:00`) are not accepted — a document anchored
   to UTC writes `"UTC"`. Whether a name exists is checked against the
-  implementation's tz database. Zones with daylight-saving transitions
-  are allowed. Wall-clock times that
+  evaluation environment's zone rules. Zones with daylight-saving
+  transitions are allowed. Wall-clock times that
   fall on a transition are resolved **per RFC 5545 §3.3.5** — a time that
   does not exist (a gap: the spring-forward hour, or the whole day a zone
   skips when it moves across the date line) is interpreted with the offset
@@ -91,7 +92,8 @@ The language never reads them (see the annotations section).
 - Zone names are **borrowed vocabulary**: Yrnk takes the names from
   the IANA Time Zone Database, and nothing more. What a name denotes —
   which wall-clock time maps to which instant — is the
-  implementation's answer, given through its tz database; this
+  evaluation environment's answer, given through the implementation's
+  tz database; this
   specification does not pick a release. Where an implementation
   relies on a tz database, differing releases give differing answers
   for the zones and periods whose offset rules were revised, so
@@ -281,6 +283,18 @@ bindings. The host's locale or default timezone never affects
 interpretation, but a resolver-backed name does depend on what the host
 binds it to, which is why the document states the dependency rather than
 leaving it to be discovered.
+
+A binding denotes one fixed date set in an evaluation environment. A
+host may compute that set on demand or communicate a relevant range to
+the resolver, but those choices must not make the denoted set depend on
+the query. The observable result must be the same as if the binding
+supplied its complete date set and evaluation took the required
+intersection.
+
+An environment used for evaluation supplies such a set for every
+declared resolver. If the host fails while constructing one, evaluation
+does not produce a Yrnk result; the failure remains a host-side runtime
+error.
 
 How a host materializes a resolver — the call signature, and whether a
 relevant range is communicated — is implementation API, outside this
@@ -691,9 +705,38 @@ The third form, for intervals that do not decompose into days and times
 ## Evaluation model
 
 The sections above define each construct; this section fixes the domain
-evaluation works in and the order in which the constructs combine. The
+evaluation works in, the external values it reads, and the order in which
+the constructs combine. The
 order defines the **observable result** only — an implementation may
 compute it however it likes, as long as the outcome is identical.
+
+### The evaluation environment
+
+Evaluation takes three inputs: a document, a query, and an **evaluation
+environment**. The environment fixes the external meanings that the
+document declares but does not contain:
+
+- the zone rules for the document's IANA timezone name, including the
+  relation between wall-clock values and instants at every transition
+- the fixed date set denoted by each declared resolver binding
+
+The environment supplies the host-side checks already required for
+timezone-name existence and resolver bindings. It does not change the
+syntax or the validity rules selected by the declared version. A
+document is **valid in an environment** when both those validity rules
+and the host-side checks succeed.
+
+Two environments are **equivalent for a document** when they accept the
+same declared timezone name, give the same wall-clock/instant relation
+throughout the date domain, and give every resolver name used by the
+document the same date set. The environments need not use the same tzdb
+release, resolver code, or internal representation.
+
+For a document that is valid in an environment and a well-formed query,
+the evaluation model determines one result. Conforming implementations
+must return the same result when their environments are equivalent for
+the document. This specification makes no equality claim for results
+from non-equivalent environments.
 
 ### The date domain
 

@@ -29,9 +29,10 @@ it exposes is pure: it executes nothing and stores nothing.
 ## Verify with the conformance kit
 
 The spec side authors a conformance suite — language-independent cases
-that check "document + query → answer". The cases ship embedded in
-[**yarunoka-test**](https://github.com/yarunoka-dev/test), a
-single-binary runner.
+that check "source text + query + resolver bindings → answer" under the
+adapter's zone rules. The cases ship embedded in
+[**yarunoka-test**](https://github.com/yarunoka-dev/test), a single-binary
+runner.
 
 The implementer writes one small **adapter**: an executable the runner
 starts once per case, which reads a request (document + query +
@@ -39,6 +40,8 @@ bindings) on stdin, hands it to the implementation unvalidated and
 unmodified, and answers on stdout. The adapter contract is documented
 in the kit's repository
 ([docs/protocol.md](https://github.com/yarunoka-dev/test/blob/main/docs/protocol.md)).
+The adapter's zone rules and the request's resolver bindings form the
+evaluation environment for that case.
 
 ```console
 $ yarunoka-test eval php adapter.php
