@@ -13,7 +13,8 @@ differs, the specification governs.
 
 Evaluation reads the document and query together with an environment.
 The environment supplies the document timezone's wall-clock/instant
-relation and one fixed date set for each declared resolver. Two
+relation and one fixed date set for each declared resolver. For a
+document valid in the environment and a well-formed query, two
 implementations must agree on a result when their environments are
 equivalent for the document.
 
