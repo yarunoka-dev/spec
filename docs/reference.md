@@ -24,8 +24,9 @@ differs, the specification governs.
 Unknown keys are an error at every level — document, calendar,
 schedule, and the times object.
 
-The source-text rule above handles duplicate names before a decoded
-object loses them.
+The source-text member-name rule in [the specification](../specification/)
+applies to every object and rejects duplicate member names after JSON escape
+resolution.
 
 ## Calendar keys
 

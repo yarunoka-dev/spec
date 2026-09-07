@@ -35,10 +35,11 @@ exactly these meanings throughout:
 
 ## Document model
 
-A Yrnk input starts as a **JSON source text**. A reader first decodes that
-text into a JSON value, then validates the value under the version it
-declares. Before a general-purpose JSON decoder can discard information
-from the source text, the reader must enforce two rules:
+A Yrnk input starts as a **JSON source text**. A reader first applies the
+source-text rules below while preserving the information needed to resolve
+member names and retain exact JSON numbers. It then constructs a JSON value
+and validates the value under the version it declares. A general-purpose
+JSON decoder must not discard that information before these rules run:
 
 - **Member names are unique in every object.** The reader rejects two
   names that compare equal after JSON escape resolution (`"timezone"`
