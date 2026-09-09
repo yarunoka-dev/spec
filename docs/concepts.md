@@ -95,17 +95,18 @@ to be true when it was written.
 
 Yrnk is strict on purpose:
 
-- the same value has exactly **one spelling** — no scalar shorthand for
+- each DSL value has one **structural form**: no scalar shorthand for
   one-element lists, zero-padded times, a single way to write "requires
   nothing"
 - every vocabulary is a **closed set** — unknown keys and unknown words
   are errors, never silently ignored
 
-One spelling holds on the write side too: reading a valid document and
-writing it back returns the same JSON — compared as JSON values, so key
-order and whitespace do not matter — which lets a serializer be checked
-against the document as authored, mechanically. Closed sets mean a
-mistake cannot be quietly read as something else — and they widen
+Structural identity holds on the write side too: reading a valid
+document and writing it back returns the same JSON value. Object member
+order, whitespace, escape spelling, and the lexical spelling of an exact
+JSON number do not change that value. A serializer can therefore be
+checked against the authored document mechanically. Closed sets mean a
+mistake cannot be quietly read as something else, and they widen
 compatibly: additions raise the minor version, and every existing
 document keeps its meaning.
 

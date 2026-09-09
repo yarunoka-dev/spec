@@ -36,6 +36,31 @@ exactly these meanings throughout:
 
 ## Document model
 
+A Yrnk input starts as a **JSON source text**. A reader first applies the
+source-text rules below while preserving the information needed to resolve
+member names and retain exact JSON numbers. It then constructs a JSON value
+and validates the value under the version it declares. A general-purpose
+JSON decoder must not discard that information before these rules run:
+
+- **Member names are unique in every object.** The reader rejects two
+  names that compare equal after JSON escape resolution (`"timezone"`
+  and `"\u0074imezone"`, for example). It applies this rule to the root
+  object and every nested object
+- **Numbers keep their exact JSON value.** The reader interprets a JSON
+  number as its exact decimal value. A position that requires an integer
+  accepts it only when that exact value is integral, and compares bounds
+  against that value. A host number type must not round the value, turn a
+  finite JSON number such as `1e400` into infinity, or otherwise change a
+  validation or evaluation result. An implementation may inspect the
+  number token and compare it with a bound without constructing the full
+  integer
+
+These source-text rules apply before versioned validity and to every spec
+version. A source text with duplicate member names does not produce a
+Yrnk document; an implementation reports the rejection as invalid input.
+A reader that substitutes a rounded or non-finite host number for the
+source value does not conform for that input.
+
 A document is a JSON object with three layers:
 
 - **Reading directives** — `version` and `timezone` declare *how to
@@ -106,7 +131,7 @@ The language never reads them (see the annotations section).
   enumerates members, and for the date axes omission means no restriction
   on that axis. There is no scalar sugar — `"days": "mon"` and
   `"months": 2` are invalid; a single member is still written as a
-  one-element array (so that the same value never has two spellings, and
+  one-element array (so that a list value has one structural form, and
   round-tripping is the identity). **Tuple positions** (`shift`, `if`, the
   ordinal and day-cycle tuples, both `every` forms, a window) hold
   fixed-arity tuples whose elements are read by position, as defined in
@@ -119,12 +144,9 @@ The language never reads them (see the annotations section).
   `workweek`, `business_hours`, and `resolvers` must be non-empty when
   present, and `schedules` must be non-empty. Date lists **may** be empty
   — an explicit empty list is the statement that there are no such days
-- Objects reject duplicate member names: a document in which any
-  object — the document itself, a `calendar`, a schedule, a
-  `date_sets` — writes the same member name twice is invalid. Names
-  compare after escape resolution (`"timezone"` and `"\u0074imezone"`
-  are the same name): JSON decides member equality on the resolved
-  characters, never on the written bytes
+- Every object has one member per resolved name. The source-text reader
+  enforces this before it selects the declared version; a decoded map is
+  too late to detect a duplicate
 - Empty objects are invalid too: a `calendar` and a `date_sets` must
   hold at least one entry when present. A document with no definitions
   omits the key rather than writing `{}`, so that "no definitions" has a
@@ -160,6 +182,15 @@ document declares which spec version it is written against.
 - An implementation must reject a document whose declared version it does
   not know
 
+**Source-text reading precedes versioned validity.** The common
+source-text rules in the document model run before the reader selects a
+declared version. A text rejected at that boundary never becomes a
+document declaring 1.0, 1.1, or any other version. Those rules do not
+count as restrictions introduced by a later version. Applying the
+member-name rule to a 1.0 input determines behavior that 1.0 left
+undefined; it changes no defined 1.0 meaning because a source text with
+duplicate names had no single decoded value.
+
 **Validity follows the declared version.** An implementation validates a
 document under the rules of the version the document declares: a
 document declaring `"1.0"` keeps 1.0's validity rules, however new the
@@ -187,9 +218,12 @@ acceptance obligation ends only at a major raise.
 
 ### Correspondence between 1.0 and 1.1
 
-For each spelling that 1.1 no longer accepts, this listing states what
-it meant in 1.0 and how the same meaning is written in 1.1. Migration
-tooling works from this listing.
+For each JSON value that forms a valid 1.0 document but not a valid 1.1
+document, this listing states its 1.0 meaning and how to write that
+meaning in 1.1. Migration tooling works from this listing. Duplicate
+member names do not appear here: the source-text reader rejects them
+before either version's validity rules run, so such a text does not form
+a 1.0 document.
 
 - **An empty `calendar` or `date_sets` object.** In 1.0,
   `"calendar": {}` and `"date_sets": {}` are valid and mean the same as
@@ -200,7 +234,10 @@ tooling works from this listing.
 - **A day-cycle or sequence `every` count beyond its bound.** In 1.0
   the counts have no upper bound; under the closed date domain a count
   beyond the domain's width yields the anchor point alone — an answer
-  an implementation gives without huge-number arithmetic. 1.1 rejects
+  an implementation gives without recurrence multiplication. The reader
+  still reads the count's exact JSON value and compares it with the
+  relevant bound; it may do so from the number token without converting
+  that value to a host integer. 1.1 rejects
   such a count (the bounds and their derivation are in the day-cycle
   and sequence sections). The same meaning — a single occurrence at the
   anchor — is written with an `until` that ends the range before the

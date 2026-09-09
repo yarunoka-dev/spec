@@ -15,14 +15,18 @@ it exposes is pure: it executes nothing and stores nothing.
 
 ## Build against the spec, not another implementation
 
+- **Source text:** before decoding to a map, reject duplicate member
+  names after escape resolution and preserve each JSON number's exact
+  decimal value. These checks run before selecting the declared version
 - **Syntax** — the JSON Schemas under `schema/` render the structural
   syntax as far as JSON Schema can express it; the specification is the
   authority. An implementation carries a verbatim copy of them, so
   validation needs no network and pins the exact spec version
 - **Semantics** — the [specification](../specification/) defines what a
-  document means. Validation is two stages: structural validation
-  against the schemas, plus the specification's document validation
-  rules that the schemas cannot express, applied at parse time
+  document means in an evaluation environment. After source-text reading,
+  validation has two stages: structural validation against the schemas,
+  plus the specification's document validation rules that the schemas
+  cannot express, applied at parse time
 - A document whose declared `version` the implementation does not know
   must be rejected, never guessed at
 
