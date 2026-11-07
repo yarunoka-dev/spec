@@ -1,6 +1,6 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://yarunoka.dev/schema/1.1/schedule.schema.json",
+    "$id": "https://yarunoka.dev/schema/1.2/schedule.schema.json",
     "title": "Yrnk schedule",
     "description": "A single schedule: a pure expression that describes a set of points in time. Fields are the annotations (label, description — inert human-facing text, never part of evaluation), the date axes (years, months, days), the date modifiers (shift, if), the time part (exactly one of times, allday, or every), and the validity range (from, until). A schedule refers to calendar vocabulary and date sets by name only; it carries no definitions of its own. This value carries rules JSON Schema cannot express; consult the specification.",
     "type": "object",
