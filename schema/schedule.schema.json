@@ -56,7 +56,7 @@
         }
     ],
     "if": {
-        "properties": {"days": {"contains": {"$ref": "#/$defs/dayCycle"}}},
+        "properties": {"days": {"type": "array", "contains": {"$ref": "#/$defs/dayCycle"}}},
         "required": ["days"]
     },
     "then": {"required": ["from"]},
