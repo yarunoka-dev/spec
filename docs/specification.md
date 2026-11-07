@@ -209,12 +209,12 @@ what was undefined had no meaning to preserve.
 writing it back yields a 1.0 document; round-tripping never upgrades.
 Moving a document to a newer version is a separate, explicit migration
 step — one this specification does not require implementations to
-provide. What it provides instead is the correspondence below, which is
-what migration tooling works from.
+provide. What it provides instead is the correspondences below, which
+are what migration tooling works from.
 
-The first public version is 1.0. **1.0 is deprecated**: new documents
-should declare 1.1. Implementations keep accepting 1.0 documents — the
-acceptance obligation ends only at a major raise.
+The first public version is 1.0. **1.0 and 1.1 are deprecated**: new
+documents should declare 1.2. Implementations keep accepting 1.0 and 1.1
+documents — the acceptance obligation ends only at a major raise.
 
 ### Correspondence between 1.0 and 1.1
 
@@ -242,6 +242,14 @@ a 1.0 document.
   and sequence sections). The same meaning — a single occurrence at the
   anchor — is written with an `until` that ends the range before the
   second point
+
+### Correspondence between 1.1 and 1.2
+
+1.2 adds no restriction that binds only documents declaring it. A valid
+1.1 document becomes a valid 1.2 document with the same meaning by
+changing its declared version to `"1.2"`; no other content is rewritten.
+A 1.0 document migrates to 1.2 through the listing above and then this
+change of version.
 
 ## Annotations — label and description
 
