@@ -1,6 +1,6 @@
 ---
 title: Specification
-description: The Yrnk schedule DSL, version 1.1 — the normative definition of the language, its syntax and its semantics.
+description: The Yrnk schedule DSL, version 1.2 — the normative definition of the language, its syntax and its semantics.
 sidebar:
   order: 3
 ---
@@ -9,7 +9,7 @@ Yrnk is a JSON DSL for describing calendar-aware schedules. **Yrnk** is
 short for Yarunoka: Yarunoka is the project, and Yrnk is the notation.
 This document defines the language — its syntax and its semantics — and
 is the source of authority. The JSON Schemas under
-[`schema/`](https://github.com/yarunoka-dev/spec/tree/1.1/schema)
+[`schema/`](https://github.com/yarunoka-dev/spec/tree/1.2/schema)
 (JSON Schema draft 2020-12) are its supporting artifact: a
 machine-readable rendition of what they can express. Implementations
 must conform to both, and their agreement is verified by tests.
@@ -78,7 +78,7 @@ The language never reads them (see the annotations section).
 ```json
 {
   "label": "Company calendar",
-  "version": "1.1",
+  "version": "1.2",
   "timezone": "Asia/Tokyo",
   "resolvers": ["yasumi-jp"],
   "calendar": {
