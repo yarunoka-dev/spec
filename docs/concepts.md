@@ -71,8 +71,9 @@ different answers on different calendars. Say a company works on
 Saturday, July 25: on the company's calendar, its monthly report due on
 the 25th stays on the 25th. Its payday is a bank transfer, though, and
 a transfer runs on the bank's business days — the company working that
-Saturday does not open the bank — so on the bank's calendar the same
-line moves the payday back to Friday the 24th. A company business day
+Saturday does not open the bank. So the payday rule takes the bank's
+calendar, where the 25th is still a day off and the same line moves the
+payday earlier. A company business day
 and a bank business day are different things, and each belongs in its
 own document with its own calendar.
 
