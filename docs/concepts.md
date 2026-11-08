@@ -64,13 +64,22 @@ in two:
 - the **schedules** are pure expressions — they refer to that
   vocabulary by name and carry no definitions of their own
 
-The same schedule — `{"days": [25], "shift": ["prev", "or_same",
-"business_day"], "times": ["10:00"]}` — means the right thing in every
-organization, because *whose* business days it runs on is the
-calendar's decision. The vocabulary is answered by stacked layers
-(`business_days` over `business_holidays` over `holidays` over the
-`workweek`), so the one question "is this a working day?" has one place
-to be decided.
+A schedule never says *whose* business days it runs on — that is the
+calendar's decision. The same schedule — `{"days": [25], "shift":
+["prev", "or_same", "business_day"], "times": ["10:00"]}` — gives
+different answers on different calendars. Say a company works on
+Saturday, July 25: on the company's calendar, its monthly report due on
+the 25th stays on the 25th. Its payday is a bank transfer, though, and
+a transfer runs on the bank's business days — the company working that
+Saturday does not open the bank. So the payday rule takes the bank's
+calendar, where the 25th is still a day off and the same line moves the
+payday earlier. A company business day
+and a bank business day are different things, and each belongs in its
+own document with its own calendar.
+
+The vocabulary is answered by stacked layers (`business_days` over
+`business_holidays` over `holidays` over the `workweek`), so the one
+question "is this a working day?" has one place to be decided.
 
 ## The document is authoritative
 

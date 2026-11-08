@@ -6,8 +6,8 @@ sidebar:
 ---
 
 Yrnk is a JSON DSL for describing calendar-aware schedules — "the third
-Monday of every month at 10:00", "payday on the 25th, moved earlier on
-non-business days" — as pure descriptions of sets of points in time.
+Monday of every month at 10:00", "payday on the 25th, moved earlier when
+the banks are closed" — as pure descriptions of sets of points in time.
 **Yrnk** is short for Yarunoka: Yarunoka is the project, and Yrnk is the
 notation.
 

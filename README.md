@@ -1,8 +1,8 @@
 # Yarunoka Specification
 
 Yarunoka is a calendar-aware schedule DSL. Schedules — "the third Monday
-of every month at 10:00", "payday on the 25th, moved earlier on
-non-business days" — are written in JSON, as pure descriptions of sets of
+of every month at 10:00", "payday on the 25th, moved earlier when
+the banks are closed" — are written in JSON, as pure descriptions of sets of
 points in time. The notation is called **Yrnk**.
 
 This repository is the language-independent specification of Yrnk.
