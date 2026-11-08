@@ -605,7 +605,8 @@ shift: [direction, "or_same"?, landing condition]
 ```
 
 ```jsonc
-// payday: the 25th, moved earlier if it falls on a non-business day
+// payday, on the bank's calendar: the 25th, moved earlier if it falls on
+// a day the banks are closed
 // (if the 25th is a business day, that day itself)
 {"days": [25], "shift": ["prev", "or_same", "business_day"], "times": ["10:00"]}
 ```
@@ -972,7 +973,8 @@ objects, not complete Yrnk documents.
 // every 600 seconds
 {"times": {"every": [600, "second"]}}
 
-// payday: the 25th, moved to the previous business day on days off
+// payday, in a document whose calendar is the bank's: the 25th, moved to
+// the previous business day on days off
 {"days": [25], "shift": ["prev", "or_same", "business_day"], "times": ["10:00"]}
 
 // the same rule wearing its name (the label plays no part in evaluation)
